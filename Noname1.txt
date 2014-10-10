@@ -1,0 +1,98 @@
+;判断是否是PE文件
+_LoadIsPEFile	proc	hWnd
+		local	@hFile,@hMapFile,@ImageBase,@dwFileSize,@lpMemory
+
+; 打开文件并建立文件 Mapping,判断是不是PE格式文件
+	invoke CreateFile,offset szFileName,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,NULL
+	.if eax != INVALID_HANDLE_VALUE
+		mov	@hFile,eax
+			invoke	GetFileSize,eax,NULL
+			mov	@dwFileSize,eax
+			.if	eax
+				invoke	CreateFileMapping,@hFile,NULL,PAGE_READONLY,0,0,NULL
+				.if	eax
+					mov	@hMapFile,eax
+					invoke	MapViewOfFile,eax,FILE_MAP_READ,0,0,0
+					.if	eax
+						mov	@lpMemory,eax
+; 检测 PE 文件是否有效
+
+						mov	esi,@lpMemory
+						assume	esi:ptr IMAGE_DOS_HEADER
+						.if	[esi].e_magic != IMAGE_DOS_SIGNATURE
+							jmp	_ErrFormat
+						.endif
+						add	esi,[esi].e_lfanew
+						assume	esi:ptr IMAGE_NT_HEADERS
+						.if	[esi].Signature != IMAGE_NT_SIGNATURE
+							jmp	_ErrFormat
+						.endif
+						xor	eax,eax
+						inc	eax
+						jmp	_ErrorExit
+_ErrFormat:
+						invoke	MessageBox,hWnd,addr szErrFormat,NULL,MB_OK
+						xor	eax,eax
+						
+_ErrorExit:
+						
+					.endif
+					
+				.endif
+								
+			.endif
+		.else		
+		invoke MessageBox,0,OFFSET szOpenFileErrorMsg,0,MB_OK
+		.endif
+
+@@:
+			ret
+_LoadIsPEFile	endp
+
+
+
+			.elseif	ax == IDD_MENU_PACK
+				invoke  MessageBox,NULL,offset szText,offset szCaption,MB_OK
+			.elseif	ax == IDD_MENU_ABOUT
+				invoke  DialogBoxParam,hInstance,IDD_DIALOG_ABOUT,hWnd,offset _ProcDlgAbout,NULL
+			.elseif	ax == IDD_MENU_EXIT
+				invoke	EndDialog,hWnd,NULL
+
+
+
+
+
+
+			mov	eax,wParam
+			.if	ax == IDD_MENU_OPEN
+				invoke	_OpenFile,hWnd
+			.elseif	ax == IDD_MENU_PACK
+				invoke  MessageBox,NULL,offset szText,offset szCaption,MB_OK
+			.elseif	ax == IDD_MENU_ABOUT
+				invoke  DialogBoxParam,hInstance,IDD_DIALOG_ABOUT,hWnd,offset _ProcDlgAbout,NULL
+			.elseif	ax == IDD_MENU_EXIT
+				invoke	EndDialog,hWnd,NULL
+			.endif
+
+_ProcDlgAbout PROC hDlg,wMsg,wParam,lParam
+
+	mov eax,wMsg
+	cmp eax,WM_CLOSE
+	jz _closeabout
+
+	cmp eax,WM_COMMAND
+	jz _command
+
+	xor eax,eax
+	ret
+
+	_command:
+	mov eax,wParam
+	cmp ax,IDOK
+	jz  _closeabout
+
+	_closeabout:
+	invoke EndDialog,hDlg,0
+	ret
+
+_ProcDlgAbout	endp
